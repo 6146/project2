@@ -14,7 +14,7 @@ int jobid=0;
 int siginfo=1;
 int fifo;
 int globalfd;
-#define DEBUG
+//#define DEBUG
 struct waitqueue *head=NULL;
 struct waitqueue *next=NULL,*current =NULL;
 
