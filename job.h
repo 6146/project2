@@ -44,6 +44,7 @@ struct jobinfo{
     int wait_time;        /* 作业在等待队列中等待时间 */
     time_t create_time;   /* 作业创建时间 */
     int run_time;         /* 作业运行时间 */
+    int turn_time;        /* 作业轮转时间 */
     enum jobstate state;  /* 作业状态 */
 };
 
@@ -63,6 +64,8 @@ void do_stat(struct jobcmd statcmd);
 void updateall();
 struct waitqueue* jobselect();
 void jobswitch();
+int SwitchJobCondition();
+int ComparePri();
 
 void error_doit(int errnoflag,const char *fmt,va_list ap);
 void error_sys(const char *fmt,...);
