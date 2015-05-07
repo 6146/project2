@@ -84,7 +84,14 @@ int allocjid()
 void updateall()
 {
 	struct waitqueue *p;
+	#ifdef DEBUG
+	for(p = head; p != NULL; p = p->next){
+		printf("job ID:%d , process ID:%d ,parameter:%s \n",p->job->jid,p->job->pid,p->job->cmdarg[0]);
+		printf("default priority:%d , current priority:%d ,owner ID:%d ,waiting time:%d\n",p->job->defpri,p->job->curpri,p->job->ownerid,p->job->wait_time);
+		printf("running time:%d\n",p->job->run_time);
 
+	} 
+	#endif
 	/* 更新作业运行时间 */
 	if(current)
 		current->job->run_time += 1; /* 加1代表1000ms */
@@ -97,6 +104,15 @@ void updateall()
 			p->job->wait_time = 0;
 		}
 	}
+	
+	#ifdef DEBUG
+	for(p = head; p != NULL; p = p->next){
+		printf("job ID:%d , process ID:%d ,parameter:%s \n",p->job->jid,p->job->pid,p->job->cmdarg[0]);
+		printf("default priority:%d , current priority:%d ,owner ID:%d ,waiting time:%d\n",p->job->defpri,p->job->curpri,p->job->ownerid,p->job->wait_time);
+		printf("running time:%d\n",p->job->run_time);
+
+	} 
+	#endif
 }
 
 struct waitqueue* jobselect()
