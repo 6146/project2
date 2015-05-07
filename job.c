@@ -28,52 +28,35 @@ void scheduler()
 	bzero(&cmd,DATALEN);
 	if((count=read(fifo,&cmd,DATALEN))<0)
 		error_sys("read fifo failed");
-	#ifdef DEBUG
-		printf("Reading whether other process send command!\n");
-		if(count){
-			printf("cmd cmdtype\t%d\ncmd defpri\t%d\ncmd data\t%s\n",cmd.type,cmd.defpri,cmd.data);
-		}
-		else
-			printf("no data read\n");
-	#endif
+#ifdef DEBUG
+
+	/*if(count){
+		printf("cmd cmdtype\t%d\ncmd defpri\t%d\ncmd data\t%s\n",cmd.type,cmd.defpri,cmd.data);
+	}
+	else
+		printf("no data read\n");*/
+#endif
 
 	/* 更新等待队列中的作业 */
-	#ifdef DEBUG
-		printf("Update jobs in wait queue!\n");
-	#endif
 	updateall();
 
 	switch(cmd.type){
 	case ENQ:
-		#ifdef DEBUG
-			printf("Execute enq!\n");
-		#endif
 		do_enq(newjob,cmd);
 		break;
 	case DEQ:
-		#ifdef DEBUG
-			printf("Execute deq!\n");
-		#endif
 		do_deq(cmd);
 		break;
 	case STAT:
-		#ifdef DEBUG
-			printf("Execute stat!\n");
-		#endif
 		do_stat(cmd);
 		break;
 	default:
 		break;
 	}
-	#ifdef DEBUG
-		printf("Select whitch job to run next!\n");
-	#endif
+
 	/* 选择高优先级作业 */
 	next=jobselect();
 	/* 作业切换 */
-	#ifdef DEBUG 
-		printf("Switch to the next job!\n");
-	#endif
 	jobswitch();
 }
 
@@ -85,14 +68,7 @@ int allocjid()
 void updateall()
 {
 	struct waitqueue *p;
-	#ifdef DEBUG
-	for(p = head; p != NULL; p = p->next){
-		printf("job ID:%d , process ID:%d ,parameter:%s \n",p->job->jid,p->job->pid,p->job->cmdarg[0]);
-		printf("default priority:%d , current priority:%d ,owner ID:%d ,waiting time:%d\n",p->job->defpri,p->job->curpri,p->job->ownerid,p->job->wait_time);
-		printf("running time:%d\n",p->job->run_time);
 
-	} 
-	#endif
 	/* 更新作业运行时间 */
 	if(current)
 		current->job->run_time += 1; /* 加1代表1000ms */
@@ -105,15 +81,6 @@ void updateall()
 			p->job->wait_time = 0;
 		}
 	}
-	
-	#ifdef DEBUG
-	for(p = head; p != NULL; p = p->next){
-		printf("job ID:%d , process ID:%d ,parameter:%s \n",p->job->jid,p->job->pid,p->job->cmdarg[0]);
-		printf("default priority:%d , current priority:%d ,owner ID:%d ,waiting time:%d\n",p->job->defpri,p->job->curpri,p->job->ownerid,p->job->wait_time);
-		printf("running time:%d\n",p->job->run_time);
-
-	} 
-	#endif
 }
 
 struct waitqueue* jobselect()
@@ -135,6 +102,19 @@ struct waitqueue* jobselect()
 			if (select == selectprev)
 				head = NULL;
 	}
+#ifdef DEBUG
+	if(select!=NULL)
+	{printf("This is what the programme selects!\n");
+	printf("job ID:%d\n"
+	       "process ID:%d\n"
+	       "jobarg :%s\n"
+               "default priority:%d\n"
+	       "current priority:%d\n"
+	       "owner ID:%d\n"
+   	       "waiting time:%d\n"
+	       "running time:%d\n",select->job->jid,select->job->pid,select->job->cmdarg[0],select->job->defpri,select->job->curpri,select->job->ownerid,select->job->wait_time,select->job->run_time);}
+	
+#endif
 	return select;
 }
 
@@ -203,9 +183,6 @@ void sig_handler(int sig,siginfo_t *info,void *notused)
 	switch (sig) {
 case SIGVTALRM: /* 到达计时器所设置的计时间隔 */
 	scheduler();
-	#ifdef DEBUG
-		printf("SIGVTALRM RECEIVED!\n");
-	#endif
 	return;
 case SIGCHLD: /* 子进程结束时传送给父进程的信号 */
 	ret = waitpid(-1,&status,WNOHANG);
@@ -460,9 +437,6 @@ int main()
 	struct stat statbuf;
 	struct sigaction newact,oldact1,oldact2;
 
-#ifdef DEBUG
-	printf("DEBUG IS OPEN!\n");
-#endif
 	if(stat("/tmp/server",&statbuf)==0){
 		/* 如果FIFO文件存在,删掉 */
 		if(remove("/tmp/server")<0)
