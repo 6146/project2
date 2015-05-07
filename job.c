@@ -213,6 +213,9 @@ void sig_handler(int sig,siginfo_t *info,void *notused)
 {
 	int status;
 	int ret;
+#ifdef DEBUG
+	struct waitqueue *p;
+#endif
 
 	switch (sig) {
 case SIGVTALRM: /* 到达计时器所设置的计时间隔 */
@@ -220,8 +223,18 @@ case SIGVTALRM: /* 到达计时器所设置的计时间隔 */
 	return;
 case SIGCHLD: /* 子进程结束时传送给父进程的信号 */
 	ret = waitpid(-1,&status,WNOHANG);
-	if (ret == 0)
-		return;
+	if (ret == 0){
+#ifdef DEBUG	
+		printf("current job\n");
+		printf("current job ID:%d,current process ID:%d\n",current->job->jid,current->job->pid);
+		printf("waiting queue!\n");
+		printf("------------------\n");
+		for(p=head;p!=NULL;p=p->next){
+			printf("job ID:%d,process ID:%d\n",p->job->jid,p->job->pid);
+		}
+		
+#endif
+		return;}
 	if(WIFEXITED(status)){
 		current->job->state = DONE;
 		printf("normal termation, exit status = %d\n",WEXITSTATUS(status));
@@ -230,6 +243,16 @@ case SIGCHLD: /* 子进程结束时传送给父进程的信号 */
 	}else if (WIFSTOPPED(status)){
 		printf("child stopped, signal number = %d\n",WSTOPSIG(status));
 	}
+#ifdef DEBUG	
+		printf("current job\n");
+		printf("current job ID:%d,current process ID:%d\n",current->job->jid,current->job->pid);
+		printf("waiting queue!\n");
+		printf("------------------\n");
+		for(p=head;p!=NULL;p=p->next){
+			printf("job ID:%d,process ID:%d\n",p->job->jid,p->job->pid);
+		}
+		
+#endif
 	return;
 	default:
 		return;
