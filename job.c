@@ -102,19 +102,6 @@ struct waitqueue* jobselect()
 			if (select == selectprev)
 				head = NULL;
 	}
-#ifdef DEBUG
-	if(select!=NULL)
-	{printf("This is what the programme selects!\n");
-	printf("job ID:%d\n"
-	       "process ID:%d\n"
-	       "jobarg :%s\n"
-               "default priority:%d\n"
-	       "current priority:%d\n"
-	       "owner ID:%d\n"
-   	       "waiting time:%d\n"
-	       "running time:%d\n",select->job->jid,select->job->pid,select->job->cmdarg[0],select->job->defpri,select->job->curpri,select->job->ownerid,select->job->wait_time,select->job->run_time);}
-	
-#endif
 	return select;
 }
 
@@ -122,9 +109,26 @@ void jobswitch()
 {
 	struct waitqueue *p;
 	int i;
+#ifdef DEBUG
+	if(current!=NULL)
+        {printf("before execute\n");
+	printf("current job ID:%d,current pid ID:%d\n",current->job->jid,current->job->pid);
+	printf("waiting queue!\n");
+	printf("---------------------------\n");
+	for(p=head;p!=NULL;p=p->next){
+		printf("job ID:%d, process ID:%d\n",p->job->jid,p->job->pid);
+	}}
+	else{
+		printf("current is NULL\n");
+		printf("before execute\n");
+	}
+#endif
 
 	if(current && current->job->state == DONE){ /* 当前作业完成 */
 		/* 作业完成，删除它 */
+#ifdef DEBUG
+		printf("current job finished!\n");
+#endif
 		for(i = 0;(current->job->cmdarg)[i] != NULL; i++){
 			free((current->job->cmdarg)[i]);
 			(current->job->cmdarg)[i] = NULL;
@@ -137,9 +141,12 @@ void jobswitch()
 		current = NULL;
 	}
 
-	if(next == NULL && current == NULL) /* 没有作业要运行 */
+	if(next == NULL && current == NULL) {/* 没有作业要运行 */
+#ifdef DEBUG
+		printf("No jobs\n");
+#endif
 
-		return;
+		return;}
 	else if (next != NULL && current == NULL){ /* 开始新的作业 */
 
 		printf("begin start new job\n");
@@ -147,6 +154,15 @@ void jobswitch()
 		next = NULL;
 		current->job->state = RUNNING;
 		kill(current->job->pid,SIGCONT);
+#ifdef DEBUG
+		printf("after execute\n");
+		printf("current job ID:%d,current pid ID:%d\n",current->job->jid,current->job->pid);
+		printf("waiting queue!\n");
+		printf("---------------------------\n");
+		for(p=head;p!=NULL;p=p->next){
+			printf("job ID:%d, process ID:%d\n",p->job->jid,p->job->pid);
+		}
+#endif
 		return;
 	}
 	else if (next != NULL && current != NULL){ /* 切换作业 */
@@ -169,8 +185,26 @@ void jobswitch()
 		current->job->state = RUNNING;
 		current->job->wait_time = 0;
 		kill(current->job->pid,SIGCONT);
+#ifdef DEBUG
+		printf("after execute\n");
+		printf("current job ID:%d,current pid ID:%d\n",current->job->jid,current->job->pid);
+		printf("waiting queue!\n");
+		printf("---------------------------\n");
+		for(p=head;p!=NULL;p=p->next){
+			printf("job ID:%d, process ID:%d\n",p->job->jid,p->job->pid);
+		}
+#endif
 		return;
 	}else{ /* next == NULL且current != NULL，不切换 */
+#ifdef DEBUG
+		printf("after execute\n");
+		printf("current job ID:%d,current pid ID:%d\n",current->job->jid,current->job->pid);
+		printf("waiting queue!\n");
+		printf("---------------------------\n");
+		for(p=head;p!=NULL;p=p->next){
+			printf("job ID:%d, process ID:%d\n",p->job->jid,p->job->pid);
+		}
+#endif
 		return;
 	}
 }
@@ -211,15 +245,7 @@ void do_enq(struct jobinfo *newjob,struct jobcmd enqcmd)
 	sigset_t zeromask;
 
 	sigemptyset(&zeromask);
-#ifdef DEBUG
-	printf("before command\n");
-	for(p = head; p != NULL; p = p->next){
-		printf("job ID:%d , process ID:%d ,parameter:%s \n",p->job->jid,p->job->pid,p->job->cmdarg[0]);
-		printf("default priority:%d , current priority:%d ,owner ID:%d ,waiting time:%d\n",p->job->defpri,p->job->curpri,p->job->ownerid,p->job->wait_time);
-		printf("running time:%d\n",p->job->run_time);
 
-	} 
-#endif
 	/* 封装jobinfo数据结构 */
 	newjob = (struct jobinfo *)malloc(sizeof(struct jobinfo));
 	newjob->jid = allocjid();
@@ -291,15 +317,6 @@ void do_enq(struct jobinfo *newjob,struct jobcmd enqcmd)
 	}else{
 		newjob->pid=pid;
 	}
-#ifdef DEBUG
-	printf("after command\n");
-	for(p = head; p != NULL; p = p->next){
-		printf("job ID:%d , process ID:%d ,parameter:%s \n",p->job->jid,p->job->pid,p->job->cmdarg[0]);
-		printf("default priority:%d , current priority:%d ,owner ID:%d ,waiting time:%d\n",p->job->defpri,p->job->curpri,p->job->ownerid,p->job->wait_time);
-		printf("running time:%d\n",p->job->run_time);
-
-	} 
-#endif
 }
 
 void do_deq(struct jobcmd deqcmd)
@@ -311,15 +328,7 @@ void do_deq(struct jobcmd deqcmd)
 #ifdef DEBUG
 	printf("deq jid %d\n",deqid);
 #endif
-#ifdef DEBUG
-	printf("before command\n");
-	for(p = head; p != NULL; p = p->next){
-		printf("job ID:%d , process ID:%d ,parameter:%s \n",p->job->jid,p->job->pid,p->job->cmdarg[0]);
-		printf("default priority:%d , current priority:%d ,owner ID:%d ,waiting time:%d\n",p->job->defpri,p->job->curpri,p->job->ownerid,p->job->wait_time);
-		printf("running time:%d\n",p->job->run_time);
 
-	} 
-#endif
 	/*current jodid==deqid,终止当前作业*/
 	if (current && current->job->jid ==deqid){
 		printf("teminate current job\n");
@@ -358,15 +367,6 @@ void do_deq(struct jobcmd deqcmd)
 			select=NULL;
 		}
 	}
-#ifdef DEBUG
-	printf("after command\n");
-	for(p = head; p != NULL; p = p->next){
-		printf("job ID:%d , process ID:%d ,parameter:%s \n",p->job->jid,p->job->pid,p->job->cmdarg[0]);
-		printf("default priority:%d , current priority:%d ,owner ID:%d ,waiting time:%d\n",p->job->defpri,p->job->curpri,p->job->ownerid,p->job->wait_time);
-		printf("running time:%d\n",p->job->run_time);
-
-	} 
-#endif
 }
 
 void do_stat(struct jobcmd statcmd)
@@ -385,15 +385,6 @@ void do_stat(struct jobcmd statcmd)
 	*/
 
 	/* 打印信息头部 */
-#ifdef DEBUG
-	printf("before command\n");
-	for(p = head; p != NULL; p = p->next){
-		printf("job ID:%d , process ID:%d ,parameter:%s \n",p->job->jid,p->job->pid,p->job->cmdarg[0]);
-		printf("default priority:%d , current priority:%d ,owner ID:%d ,waiting time:%d\n",p->job->defpri,p->job->curpri,p->job->ownerid,p->job->wait_time);
-		printf("running time:%d\n",p->job->run_time);
-
-	} 
-#endif
 	printf("JOBID\tPID\tOWNER\tRUNTIME\tWAITTIME\tCREATTIME\t\tSTATE\n");
 	if(current){
 		strcpy(timebuf,ctime(&(current->job->create_time)));
@@ -419,15 +410,6 @@ void do_stat(struct jobcmd statcmd)
 			timebuf,
 			"READY");
 	}
-#ifdef DEBUG
-	printf("after command\n");
-	for(p = head; p != NULL; p = p->next){
-		printf("job ID:%d , process ID:%d ,parameter:%s \n",p->job->jid,p->job->pid,p->job->cmdarg[0]);
-		printf("default priority:%d , current priority:%d ,owner ID:%d ,waiting time:%d\n",p->job->defpri,p->job->curpri,p->job->ownerid,p->job->wait_time);
-		printf("running time:%d\n",p->job->run_time);
-
-	} 
-#endif
 }
 
 int main()
