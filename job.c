@@ -10,7 +10,8 @@
 #include <time.h>
 #include "job.h"
 //#define DEBUG
-#define RUN
+//#define RUN
+//#define TEXT
 
 int jobid=0;
 int siginfo=1;
@@ -27,6 +28,7 @@ void scheduler()
 {
 	struct jobinfo *newjob=NULL;
 	struct jobcmd cmd;
+        struct waitqueue *p;
 	int  count = 0;
 	bzero(&cmd,DATALEN);
 	if((count=read(fifo,&cmd,DATALEN))<0)
@@ -42,14 +44,27 @@ void scheduler()
 
 	/* 更新等待队列中的作业 */
 	updateall();
-
+#ifdef TEXT
+        printf("queue3:\n");
+        for (p=head3;p!=NULL;p=p->next)
+             printf("%d\n", p->job->jid);
+        printf("queue2:\n");
+        for (p=head2;p!=NULL;p=p->next)
+             printf("%d\n", p->job->jid);
+#endif
 	switch(cmd.type){
 	case ENQ:
 		do_enq(newjob,cmd);
 
 		if(grab==1)
 		{
+#ifdef TEXT
+                        printf("grab!\n");
+#endif
 			next=jobselect();
+#ifdef TEXT
+                        printf("%d\n",next->job->jid);
+#endif
 			jobswitch();
 			grab=0;
 			return ;
@@ -147,7 +162,7 @@ int allocjid()
 void updateall()//++++++++++++++++++++++++++++++++
 {
 	struct waitqueue *p, *q, *prev;
-           
+        int flag;   
 	/* 更新作业运行时间 */
 	if(current){
 		current->job->run_time += 1; /* 加1代表1000ms */
@@ -158,32 +173,52 @@ void updateall()//++++++++++++++++++++++++++++++++
 	for(p = head3; p != NULL; p = p->next){
 		p->job->wait_time += 1000;
 #ifdef RUN
-		//printf("ID:%d,PID:%d,wait_time:%d\n",p->job->jid,p->job->pid,p->job->wait_time);
+		printf("ID:%d,PID:%d,wait_time:%d\n",p->job->jid,p->job->pid,p->job->wait_time);
 #endif
 	}
-        for(p = head2; p != NULL; p = p->next){
+        for(prev = head2, p = head2; p != NULL;p = p->next){
 		p->job->wait_time += 1000;
+                flag = 0;//
 		if(p->job->wait_time >= 10000){//5000  此处应包含降级处理,优先级加减处理
-			p->job->curpri++;
+			flag = 1;//
+                        p->job->curpri++;
 			p->job->wait_time = 0;
-                        for(q=head3;q->next != NULL; q=q->next)
-			        q->next =p;
-                        prev->next = p->next;
+                        if(head3)
+			{
+			    for(q=head3;q->next != NULL; q=q->next);
+		            q->next = p;
+			}else
+			    head3= p;
+                        if (prev == p)
+                            head2 = p ->next;
+                        else 
+                            prev->next = p->next;        
 		}
+                if (!flag) prev = p; //
 	}
 	
-        prev = NULL;
-        for(prev = head1, p = head1; p != NULL; prev = p, p = p->next){
+        
+        for(prev = head1,p = head1; p != NULL; p = p->next){
 		p->job->wait_time += 1000;
-		if(p->job->wait_time >= 10000){//5000  此处应包含降级处理,优先级加减处理
+                flag = 0;//
+		if(p->job->wait_time >= 10000){//5000  此处应包含降级处理,优先级加减处理                       
 			p->job->curpri++;
 			p->job->wait_time = 0;
                         if (p->job->curpri = 2){
-                            for(q=head2;q->next != NULL; q=q->next)
-			        q->next =p;
-                            prev->next = p->next;
+                            flag = 1;//
+                            if(head2)
+			    {
+			        for(q=head2;q->next != NULL; q=q->next);
+		                q->next = p;
+			    }else
+			        head2= p;
+                            if (prev == p)
+                                head1 = p ->next;
+                            else 
+                                prev->next = p->next;  
                         }
 		}
+                if (!flag) prev = p; //
 	}
 
 }
@@ -205,7 +240,7 @@ struct waitqueue* FindHead1()//+++++++++++++++++++++++++=
 			}
 			selectprev->next = select->next;
 			if (select == selectprev)
-				head1 = NULL;
+				head1 = select->next;
 	}
 	return select;
 }
@@ -226,7 +261,7 @@ struct waitqueue* FindHead2()//+++++++++++++++++++++++++++
 			}
 			selectprev->next = select->next;
 			if (select == selectprev)
-				head2 = NULL;
+				head2 = select->next;
 	}
 	return select;
 }
@@ -239,15 +274,16 @@ struct waitqueue* FindHead3()//++++++++++++++++++++++++++++
 	selectprev = NULL;
 	if(head3){
 		/* 遍历等待队列中的作业，找到优先级最高的作业 */
-		for(prev = head3, p = head3; p != NULL; prev = p,p = p->next)   /*添加对于等待时间的对比*/
+		for(prev = head3, p = head3; p != NULL; prev = p,p = p->next){   /*添加对于等待时间的对比*/
 			if(p->job->wait_time > highest){
 				select = p;
 				selectprev = prev;
 				highest = p->job->wait_time;
 			}
+                }
 			selectprev->next = select->next;
 			if (select == selectprev)
-				head3 = NULL;
+				head3 = select->next;
 	}
 	return select;
 }
@@ -255,6 +291,7 @@ struct waitqueue* jobselect()//++++++++++++++++++++++++++++++++
 {		
 	struct waitqueue *select;
 	select = NULL;
+        
 	if(current == NULL)
 	{
 
@@ -267,6 +304,13 @@ struct waitqueue* jobselect()//++++++++++++++++++++++++++++++++
 		}
 		return select;
 	}
+        else {
+            if ((select = FindHead3()) == NULL)
+                if ((select = FindHead2()) == NULL)
+                     select = FindHead1();
+            return select;
+        }
+        /*
 	switch(current->job->curpri)
 	{
 		case 3:
@@ -290,6 +334,7 @@ struct waitqueue* jobselect()//++++++++++++++++++++++++++++++++
 			return select;
 			
 	}
+        */
 
 }
 
@@ -363,7 +408,7 @@ void jobswitch()//+++++++++++++++++++++++++++
 			case 1||0 :
 				if(head1){
 					for(p = head1; p->next != NULL; p = p->next);
-						p->next = current;
+				        p->next = current;
 				}else
 					head1 = current;
 				break;
@@ -511,7 +556,7 @@ void do_enq(struct jobinfo *newjob,struct jobcmd enqcmd)//++++++++++++++++++++++
 			break;
 	}
 #ifdef RUN
-	for(p=head3;p->next != NULL; p=p->next){
+	for(p=head3;p!= NULL; p=p->next){
 		printf("job ID:%d\n",p->job->jid);
 	}
 #endif
@@ -593,7 +638,7 @@ void do_deq(struct jobcmd deqcmd)//++++++++++++++++++=
 				}
 				selectprev->next=select->next;
 				if(select==selectprev)
-					head1=NULL;
+					head1=select->next;
 		}
 		if(head2){
 			for(prev=head2,p=head2;p!=NULL;prev=p,p=p->next)
@@ -604,7 +649,7 @@ void do_deq(struct jobcmd deqcmd)//++++++++++++++++++=
 				}
 				selectprev->next=select->next;
 				if(select==selectprev)
-					head2=NULL;
+					head2=select->next;
 		}
 		if(head3){
 			for(prev=head3,p=head3;p!=NULL;prev=p,p=p->next)
@@ -615,7 +660,7 @@ void do_deq(struct jobcmd deqcmd)//++++++++++++++++++=
 				}
 				selectprev->next=select->next;
 				if(select==selectprev)
-					head3=NULL;
+					head3=select->next;
 		}
 		if(select){
 			for(i=0;(select->job->cmdarg)[i]!=NULL;i++){
