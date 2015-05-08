@@ -141,50 +141,57 @@ int allocjid()
 
 void updateall()//++++++++++++++++++++++++++++++++
 {
-	struct waitqueue *p;
-
+	struct waitqueue *p, *q, *prev;
+           
 	/* 更新作业运行时间 */
 	if(current){
 		current->job->run_time += 1; /* 加1代表1000ms */
 		current->job->turn_time += 1;
 	}	
 	/* 更新作业等待时间及优先级 */
-	for(p = head1; p != NULL; p = p->next){
-		p->job->wait_time += 1000;
-		if(p->job->wait_time >= 10000 && p->job->curpri < 3){//5000  此处应包含降级处理,优先级加减处理
-			p->job->curpri++;
-			p->job->wait_time = 0;
-		}
-	}
-	for(p = head2; p != NULL; p = p->next){
-		p->job->wait_time += 1000;
-		if(p->job->wait_time >= 10000 && p->job->curpri < 3){//5000  此处应包含降级处理,优先级加减处理
-			p->job->curpri++;
-			p->job->wait_time = 0;
-		}
-	}
+	
 	for(p = head3; p != NULL; p = p->next){
 		p->job->wait_time += 1000;
-		if(p->job->wait_time >= 10000 && p->job->curpri < 3){//5000  此处应包含降级处理,优先级加减处理
+	}
+        for(p = head2; p != NULL; p = p->next){
+		p->job->wait_time += 1000;
+		if(p->job->wait_time >= 10000){//5000  此处应包含降级处理,优先级加减处理
 			p->job->curpri++;
 			p->job->wait_time = 0;
+                        for(q=head3;q->next != NULL; q=q->next)
+			        q->next =p;
+                        prev->next = p->next;
+		}
+	}
+        prev = NULL;
+        for(prev = head1, p = head1; p != NULL; prev = p, p = p->next){
+		p->job->wait_time += 1000;
+		if(p->job->wait_time >= 10000){//5000  此处应包含降级处理,优先级加减处理
+			p->job->curpri++;
+			p->job->wait_time = 0;
+                        if (p->job->curpri = 2){
+                            for(q=head2;q->next != NULL; q=q->next)
+			        q->next =p;
+                            prev->next = p->next;
+                        }
 		}
 	}
 }
 struct waitqueue* FindHead1()//+++++++++++++++++++++++++=
 {
 	struct waitqueue *p,*prev,*select,*selectprev;
-	int highest = -1;
+	int highest = -1, highesttime = -1;
 
 	select = NULL;
 	selectprev = NULL;
 	if(head1){
 		/* 遍历等待队列中的作业，找到优先级最高的作业 */
 		for(prev = head1, p = head1; p != NULL; prev = p,p = p->next)   /*添加对于等待时间的对比*/
-			if(p->job->curpri > highest){
+			if(p->job->curpri > highest || p->job->curpri == highest && p->job->wait_time > highesttime){
 				select = p;
 				selectprev = prev;
 				highest = p->job->curpri;
+                                highesttime = p->job->wait_time;
 			}
 			selectprev->next = select->next;
 			if (select == selectprev)
@@ -202,10 +209,10 @@ struct waitqueue* FindHead2()//+++++++++++++++++++++++++++
 	if(head2){
 		/* 遍历等待队列中的作业，找到优先级最高的作业 */
 		for(prev = head2, p = head2; p != NULL; prev = p,p = p->next)   /*添加对于等待时间的对比*/
-			if(p->job->curpri > highest){
+			if(p->job->wait_time > highest){
 				select = p;
 				selectprev = prev;
-				highest = p->job->curpri;
+				highest = p->job->wait_time;
 			}
 			selectprev->next = select->next;
 			if (select == selectprev)
@@ -223,10 +230,10 @@ struct waitqueue* FindHead3()//++++++++++++++++++++++++++++
 	if(head1){
 		/* 遍历等待队列中的作业，找到优先级最高的作业 */
 		for(prev = head3, p = head3; p != NULL; prev = p,p = p->next)   /*添加对于等待时间的对比*/
-			if(p->job->curpri > highest){
+			if(p->job->wait_time > highest){
 				select = p;
 				selectprev = prev;
-				highest = p->job->curpri;
+				highest = p->job->wait_time;
 			}
 			selectprev->next = select->next;
 			if (select == selectprev)
@@ -238,7 +245,7 @@ struct waitqueue* jobselect()//++++++++++++++++++++++++++++++++
 {		
 	struct waitqueue *select;
 	select = NULL;
-	switch(current->job->defpri)
+	switch(current->job->curpri)
 	{
 		case 3:
 			select = FindHead3();
