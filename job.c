@@ -9,7 +9,8 @@
 #include <fcntl.h>
 #include <time.h>
 #include "job.h"
-#define TEST
+//#define DEBUG
+#define RUN
 
 int jobid=0;
 int siginfo=1;
@@ -45,6 +46,7 @@ void scheduler()
 	switch(cmd.type){
 	case ENQ:
 		do_enq(newjob,cmd);
+
 		if(grab==1)
 		{
 			next=jobselect();
@@ -62,12 +64,15 @@ void scheduler()
 	default:
 		break;
 	}
+
 	if(SwitchJobCondition() && ComparePri())
 	{
 		/* 选择高优先级作业 */
+
 		next=jobselect();
 		/* 作业切换 */
 		jobswitch();
+
 		return ;
 	}
 	else
@@ -149,9 +154,12 @@ void updateall()//++++++++++++++++++++++++++++++++
 		current->job->turn_time += 1;
 	}	
 	/* 更新作业等待时间及优先级 */
-	
+
 	for(p = head3; p != NULL; p = p->next){
 		p->job->wait_time += 1000;
+#ifdef RUN
+		//printf("ID:%d,PID:%d,wait_time:%d\n",p->job->jid,p->job->pid,p->job->wait_time);
+#endif
 	}
         for(p = head2; p != NULL; p = p->next){
 		p->job->wait_time += 1000;
@@ -163,6 +171,7 @@ void updateall()//++++++++++++++++++++++++++++++++
                         prev->next = p->next;
 		}
 	}
+	
         prev = NULL;
         for(prev = head1, p = head1; p != NULL; prev = p, p = p->next){
 		p->job->wait_time += 1000;
@@ -176,6 +185,7 @@ void updateall()//++++++++++++++++++++++++++++++++
                         }
 		}
 	}
+
 }
 struct waitqueue* FindHead1()//+++++++++++++++++++++++++=
 {
@@ -227,7 +237,7 @@ struct waitqueue* FindHead3()//++++++++++++++++++++++++++++
 
 	select = NULL;
 	selectprev = NULL;
-	if(head1){
+	if(head3){
 		/* 遍历等待队列中的作业，找到优先级最高的作业 */
 		for(prev = head3, p = head3; p != NULL; prev = p,p = p->next)   /*添加对于等待时间的对比*/
 			if(p->job->wait_time > highest){
@@ -245,6 +255,18 @@ struct waitqueue* jobselect()//++++++++++++++++++++++++++++++++
 {		
 	struct waitqueue *select;
 	select = NULL;
+	if(current == NULL)
+	{
+
+		select = FindHead3();
+		if(select == NULL)
+		{
+			select = FindHead2();
+			if(select == NULL)
+				select = FindHead1();
+		}
+		return select;
+	}
 	switch(current->job->curpri)
 	{
 		case 3:
@@ -297,6 +319,7 @@ void jobswitch()//+++++++++++++++++++++++++++
 {
 	struct waitqueue *p;
 	int i;
+
 
 	if(current && current->job->state == DONE){ /* 当前作业完成 */
 		/* 作业完成，删除它 */
@@ -487,6 +510,11 @@ void do_enq(struct jobinfo *newjob,struct jobcmd enqcmd)//++++++++++++++++++++++
 				head3=newnode;
 			break;
 	}
+#ifdef RUN
+	for(p=head3;p->next != NULL; p=p->next){
+		printf("job ID:%d\n",p->job->jid);
+	}
+#endif
 	/*if(head)
 	{
 		for(p=head;p->next != NULL; p=p->next);
@@ -498,7 +526,9 @@ void do_enq(struct jobinfo *newjob,struct jobcmd enqcmd)//++++++++++++++++++++++
 	if((pid=fork())<0)
 		error_sys("enq fork failed");
 
+
 	if(pid==0){
+
 		newjob->pid =getpid();
 		kill(getppid(),SIGUSR1);
 		/*阻塞子进程,等等执行*/
@@ -509,7 +539,6 @@ void do_enq(struct jobinfo *newjob,struct jobcmd enqcmd)//++++++++++++++++++++++
 		for(i=0;arglist[i]!=NULL;i++)
 			printf("arglist %s\n",arglist[i]);
 #endif
-
 		/*复制文件描述符到标准输出*/
 		dup2(globalfd,1);
 		/* 执行命令 */
@@ -517,13 +546,15 @@ void do_enq(struct jobinfo *newjob,struct jobcmd enqcmd)//++++++++++++++++++++++
 			printf("exec failed\n");
 		exit(1);
 	}else{
-#ifdef TEST
-		printf("pid is %d\n",pid);
-#endif
 		signal(SIGUSR1,setGoon);
 		while(goon==0);
 		goon = 0;
 		newjob->pid=pid;
+#ifdef RUN
+#endif
+#ifdef DEBUG
+		printf("pid is %d\n",pid);
+#endif
 	}
 }
 
