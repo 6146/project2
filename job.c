@@ -10,7 +10,7 @@
 #include <time.h>
 #include "job.h"
 //#define DEBUG
-//#define RUN
+#define RUN
 //#define TEXT
 
 int jobid=0;
@@ -523,14 +523,14 @@ void do_enq(struct jobinfo *newjob,struct jobcmd enqcmd)//++++++++++++++++++++++
 		printf("parse enqcmd:%s\n",arglist[i]);
 
 #endif
-
 	/*向等待队列中增加新的作业*/
 	newnode = (struct waitqueue*)malloc(sizeof(struct waitqueue));
 	newnode->next =NULL;
 	newnode->job=newjob;
 	switch(newnode->job->defpri)
 	{
-		case 1||0 :
+                case 0 :
+		case 1 :
 			if(head1)
 			{
 				for(p=head1;p->next != NULL; p=p->next);
@@ -556,7 +556,7 @@ void do_enq(struct jobinfo *newjob,struct jobcmd enqcmd)//++++++++++++++++++++++
 			break;
 	}
 #ifdef RUN
-	for(p=head3;p!= NULL; p=p->next){
+	for(p=head1;p!= NULL; p=p->next){
 		printf("job ID:%d\n",p->job->jid);
 	}
 #endif
@@ -646,7 +646,7 @@ void do_deq(struct jobcmd deqcmd)//++++++++++++++++++=
 					select=p;
 					selectprev=prev;
 					break;
-				}
+			 	}
 				selectprev->next=select->next;
 				if(select==selectprev)
 					head2=select->next;
